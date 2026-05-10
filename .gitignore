@@ -1,0 +1,25 @@
+# Datasets
+dataset/
+data/
+
+# External checkpoints
+models/*
+*.pt
+*.pth
+*.ckpt
+
+# Trained checkpoints and logs
+result_models/
+results/
+wandb/
+analysis_results/*
+
+# Synthetic outputs
+synthetic_exp/results/
+synthetic_exp/figures/
+
+
+__pycache__/
+*.pyc
+.DS_Store
+.vscode/
