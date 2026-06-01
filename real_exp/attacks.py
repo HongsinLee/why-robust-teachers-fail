@@ -121,33 +121,29 @@ def rslad_inner_loss(images, labels, model, teacher_logits, eps=8 / 255, alpha=2
 
 def adaad_inner_loss(images, labels, model, teacher, eps=8 / 255, alpha=2 / 255,
                      steps=10, random_start=True):
-    model.train()
-    _set_bn_dropout_eval(model)
+    model.eval()
+    teacher.eval()
 
     images = images.clone().detach().cuda()
-    labels = labels.clone().detach().cuda()
 
     adv_images = images.clone().detach()
     if random_start:
-        adv_images = _linf_random_start(images, eps)
+        adv_images = images + 0.001 * torch.randn_like(images)
+        adv_images = torch.clamp(adv_images, min=0, max=1).detach()
 
-    criterion_kl = nn.KLDivLoss(reduction="batchmean")
+    criterion_kl = nn.KLDivLoss(reduction="none")
 
     for _ in range(steps):
         adv_images.requires_grad = True
-        delta = adv_images - images
+        student_logits = model(adv_images)
 
-        with torch.no_grad():
-            teacher_plus = teacher(images + delta)
-            teacher_minus = teacher(images - delta)
-
-        student_plus = model(adv_images)
-        student_minus = model(images - delta)
-
-        loss = criterion_kl(
-            F.log_softmax(student_plus - student_minus, dim=1),
-            F.softmax((teacher_plus - teacher_minus).detach(), dim=1),
-        )
+        with torch.enable_grad():
+            teacher_logits = teacher(adv_images)
+            loss = criterion_kl(
+                F.log_softmax(student_logits, dim=1),
+                F.softmax(teacher_logits, dim=1),
+            )
+            loss = torch.sum(loss)
 
         grad = torch.autograd.grad(
             loss, adv_images, retain_graph=False, create_graph=False
